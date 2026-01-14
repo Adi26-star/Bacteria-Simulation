@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Landfill Decomposition Scene</title>
+<style>
+body {
+  font-family: Arial;
+  background: #0f172a;
+  color: white;
+  text-align: center;
+}
+
+.container {
+  width: 900px;
+  margin: auto;
+}
+
+.legend {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 14px;
+  padding: 10px 12px;
+  background: #1e293b;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+canvas {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+<h1>🦠 Landfill Microbe Activity</h1>
+<p>Bacteria move through the landfill and break down a fixed amount of plastic.</p>
+
+<div class="legend">
+  <div>🟢 Bacteria swarm</div>
+  <div>🟣 Enzymes</div>
+  <div>🔷 Plastic pieces: <span id="plasticCount"></span></div>
+  <div>Remaining plastic: <span id="plasticRemaining"></span>%</div>
+</div>
+
+<div class="legend">
+  <label>
+    Bacteria count
+    <input type="range" id="bacteriaSlider" min="4" max="40" value="14">
+    <span id="bacteriaVal">14</span>
+  </label>
+  <label>
+    Plastic pieces
+    <input type="range" id="plasticSlider" min="6" max="50" value="24">
+    <span id="plasticVal">24</span>
+  </label>
+  <div>Elapsed: <span id="elapsedTime">0.0 s</span></div>
+</div>
+
+<canvas id="scene" width="850" height="420"></canvas>
+</div>
+
+<script>
+const canvas = document.getElementById("scene");
+const ctx = canvas.getContext("2d");
+
+const plasticCountEl = document.getElementById("plasticCount");
+const plasticRemainingEl = document.getElementById("plasticRemaining");
+const bacteriaSlider = document.getElementById("bacteriaSlider");
+const plasticSlider = document.getElementById("plasticSlider");
+const bacteriaVal = document.getElementById("bacteriaVal");
+const plasticVal = document.getElementById("plasticVal");
+const elapsedTimeEl = document.getElementById("elapsedTime");
+
+const groundY = 300;
+const plastics = [];
+const bacteriaSwarm = [];
+const enzymes = [];
+let enzymeCooldown = 0;
+let lastTimestamp = 0;
+let secondAccumulator = 0;
+let simulationActive = true;
+let timerStarted = false;
+let elapsedStart = 0;
+const secondDurationMs = 1000;
+
+function rand(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+function createPlastics() {
+  plastics.length = 0;
+  const totalPlasticPieces = Number(plasticSlider.value);
+  for (let i = 0; i < totalPlasticPieces; i++) {
+    const x = rand(90, canvas.width - 90);
+    const y = rand(groundY - 60, groundY + 40);
+    const size = rand(18, 36);
+    plastics.push({
+      x,
+      y,
+      size,
+      integrity: 100,
+      wobble: rand(0, Math.PI * 2)
+    });
+  }
+}
+
+function createBacteria() {
+  bacteriaSwarm.length = 0;
+  const bacteriaCount = Number(bacteriaSlider.value);
+  for (let i = 0; i < bacteriaCount; i++) {
+    bacteriaSwarm.push({
+      x: rand(80, canvas.width - 80),
+      y: rand(80, groundY - 40),
+      radius: rand(6, 10),
+      speed: rand(0.6, 1.2),
+      wiggle: rand(0, Math.PI * 2)
+    });
+  }
+}
+
+function nearestPlastic(b) {
+  let closest = null;
+  let closestDist = Infinity;
+  for (const p of plastics) {
+    if (p.integrity <= 0) continue;
+    const dx = p.x - b.x;
+    const dy = p.y - b.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < closestDist) {
+      closestDist = dist;
+      closest = p;
+    }
+  }
+  return { target: closest, dist: closestDist };
+}
+
+function spawnEnzymes() {
+  if (enzymeCooldown > 0) {
+    enzymeCooldown -= 1;
+    return;
+  }
+  for (const b of bacteriaSwarm) {
+    if (Math.random() < 0.35) {
+      enzymes.push({
+        x: b.x,
+        y: b.y,
+        radius: rand(3, 5),
+        speed: rand(1.2, 2.2),
+        life: rand(140, 220),
+        drift: rand(0, Math.PI * 2)
+      });
+    }
+  }
+  enzymeCooldown = 10;
+}
+
+function updateEnzymes() {
+  for (const e of enzymes) {
+    const { target } = nearestPlastic(e);
+    if (target) {
+      const dx = target.x - e.x;
+      const dy = target.y - e.y;
+      const angle = Math.atan2(dy, dx);
+      e.x += Math.cos(angle) * e.speed;
+      e.y += Math.sin(angle) * e.speed;
+
+      if (Math.hypot(dx, dy) < e.radius + target.size * 0.35) {
+        target.integrity = Math.max(0, target.integrity - 0.6);
+        e.life -= 40;
+      }
+    } else {
+      e.drift += 0.2;
+      e.x += Math.cos(e.drift) * 0.6;
+      e.y += Math.sin(e.drift) * 0.6;
+    }
+    e.life -= 1;
+  }
+  for (let i = enzymes.length - 1; i >= 0; i--) {
+    if (enzymes[i].life <= 0) enzymes.splice(i, 1);
+  }
+}
+
+function updateBacteria() {
+  for (const b of bacteriaSwarm) {
+    const { target, dist } = nearestPlastic(b);
+    if (target) {
+      const dx = target.x - b.x;
+      const dy = target.y - b.y;
+      const angle = Math.atan2(dy, dx);
+      b.x += Math.cos(angle) * b.speed;
+      b.y += Math.sin(angle) * b.speed;
+    }
+
+    b.wiggle += 0.1;
+    b.y += Math.sin(b.wiggle) * 0.3;
+  }
+}
+
+function drawBackground() {
+  const sky = ctx.createLinearGradient(0, 0, 0, groundY);
+  sky.addColorStop(0, "#c7d2fe");
+  sky.addColorStop(1, "#e2e8f0");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, canvas.width, groundY);
+
+  const mound = ctx.createLinearGradient(0, groundY - 80, 0, canvas.height);
+  mound.addColorStop(0, "#6b7280");
+  mound.addColorStop(1, "#3f3f46");
+  ctx.fillStyle = mound;
+  ctx.beginPath();
+  ctx.moveTo(0, groundY);
+  ctx.bezierCurveTo(140, groundY - 90, 320, groundY - 40, 520, groundY - 70);
+  ctx.bezierCurveTo(650, groundY - 90, 760, groundY - 10, canvas.width, groundY - 40);
+  ctx.lineTo(canvas.width, canvas.height);
+  ctx.lineTo(0, canvas.height);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawPlastics() {
+  for (const p of plastics) {
+    if (p.integrity <= 0) continue;
+    const size = p.size * (0.4 + p.integrity / 200);
+    const alpha = Math.max(0.2, p.integrity / 100);
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(Math.sin(p.wobble) * 0.3);
+    ctx.fillStyle = `rgba(56, 189, 248, ${alpha})`;
+    ctx.strokeStyle = `rgba(14, 116, 144, ${alpha})`;
+    ctx.lineWidth = 2;
+    drawRoundedRect(-size / 2, -size / 3, size, size / 1.6, 6);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+    p.wobble += 0.02;
+  }
+}
+
+function drawRoundedRect(x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function drawEnzymes() {
+  for (const e of enzymes) {
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.fillStyle = "rgba(168, 85, 247, 0.8)";
+    ctx.strokeStyle = "rgba(126, 34, 206, 0.9)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, e.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawBacteria() {
+  for (const b of bacteriaSwarm) {
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.fillStyle = "#22c55e";
+    ctx.strokeStyle = "#16a34a";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, b.radius * 1.2, b.radius * 0.9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(22, 163, 74, 0.8)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 4; i++) {
+      const angle = (i / 4) * Math.PI * 2 + b.wiggle * 0.2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(angle) * b.radius * 0.7, Math.sin(angle) * b.radius * 0.5);
+      ctx.lineTo(Math.cos(angle) * b.radius * 1.6, Math.sin(angle) * b.radius * 1.2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+function updateStats() {
+  const remainingPieces = plastics.filter(p => p.integrity > 0).length;
+  const totalIntegrity = plastics.reduce((sum, p) => sum + p.integrity, 0);
+  const totalPlasticPieces = Number(plasticSlider.value);
+  const percent = totalPlasticPieces === 0
+    ? 0
+    : Math.max(0, Math.round((totalIntegrity / (totalPlasticPieces * 100)) * 100));
+  plasticCountEl.textContent = remainingPieces;
+  plasticRemainingEl.textContent = percent;
+  return percent;
+}
+
+function drawScene() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawBackground();
+  drawPlastics();
+  drawEnzymes();
+  drawBacteria();
+}
+
+function updateTimer(timestamp, remainingPercent) {
+  if (!simulationActive) return;
+  if (!timerStarted && remainingPercent === 100) {
+    timerStarted = true;
+    lastTimestamp = timestamp;
+    elapsedStart = timestamp;
+  }
+  if (!timerStarted) return;
+  if (remainingPercent <= 0) {
+    simulationActive = false;
+    return;
+  }
+  if (!lastTimestamp) lastTimestamp = timestamp;
+  const delta = timestamp - lastTimestamp;
+  lastTimestamp = timestamp;
+  secondAccumulator += delta;
+  while (secondAccumulator >= secondDurationMs) {
+    secondAccumulator -= secondDurationMs;
+  }
+  const elapsedSeconds = (timestamp - elapsedStart) / 1000;
+  elapsedTimeEl.textContent = `${elapsedSeconds.toFixed(1)} s`;
+}
+
+function loop(timestamp) {
+  if (!timerStarted) {
+    drawScene();
+    const remainingPercent = updateStats();
+    updateTimer(timestamp, remainingPercent);
+    requestAnimationFrame(loop);
+    return;
+  }
+  if (simulationActive) {
+    spawnEnzymes();
+    updateBacteria();
+    updateEnzymes();
+  }
+  drawScene();
+  const remainingPercent = updateStats();
+  updateTimer(timestamp, remainingPercent);
+  requestAnimationFrame(loop);
+}
+
+function updateCounts() {
+  bacteriaVal.textContent = bacteriaSlider.value;
+  plasticVal.textContent = plasticSlider.value;
+}
+
+bacteriaSlider.addEventListener("input", () => {
+  updateCounts();
+  createBacteria();
+});
+
+plasticSlider.addEventListener("input", () => {
+  updateCounts();
+  createPlastics();
+  enzymes.length = 0;
+  secondAccumulator = 0;
+  lastTimestamp = 0;
+  simulationActive = true;
+  timerStarted = false;
+  elapsedStart = 0;
+  elapsedTimeEl.textContent = "0.0 s";
+});
+
+updateCounts();
+createPlastics();
+createBacteria();
+enzymes.length = 0;
+elapsedTimeEl.textContent = "0.0 s";
+loop();
+</script>
+</body>
+</html>
