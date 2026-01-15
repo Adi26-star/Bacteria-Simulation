@@ -57,6 +57,11 @@ canvas {
     <input type="range" id="plasticSlider" min="6" max="50" value="24">
     <span id="plasticVal">24</span>
   </label>
+  <label>
+    Temperature (C)
+    <input type="range" id="tempSlider" min="0" max="50" value="25">
+    <span id="tempVal">25</span>
+  </label>
   <div>Elapsed: <span id="elapsedTime">0.0 s</span></div>
 </div>
 
@@ -73,6 +78,8 @@ const bacteriaSlider = document.getElementById("bacteriaSlider");
 const plasticSlider = document.getElementById("plasticSlider");
 const bacteriaVal = document.getElementById("bacteriaVal");
 const plasticVal = document.getElementById("plasticVal");
+const tempSlider = document.getElementById("tempSlider");
+const tempVal = document.getElementById("tempVal");
 const elapsedTimeEl = document.getElementById("elapsedTime");
 
 const groundY = 300;
@@ -122,6 +129,14 @@ function createBacteria() {
   }
 }
 
+function tempFactor() {
+  const tempC = Number(tempSlider.value);
+  if (tempC < 5) {
+    return 0;
+  }
+  return 0.5 + (tempC / 50);
+}
+
 function nearestPlastic(b) {
   let closest = null;
   let closestDist = Infinity;
@@ -139,6 +154,9 @@ function nearestPlastic(b) {
 }
 
 function spawnEnzymes() {
+  if (tempFactor() === 0) {
+    return;
+  }
   if (enzymeCooldown > 0) {
     enzymeCooldown -= 1;
     return;
@@ -159,17 +177,19 @@ function spawnEnzymes() {
 }
 
 function updateEnzymes() {
+  const factor = tempFactor();
   for (const e of enzymes) {
     const { target } = nearestPlastic(e);
     if (target) {
       const dx = target.x - e.x;
       const dy = target.y - e.y;
       const angle = Math.atan2(dy, dx);
-      e.x += Math.cos(angle) * e.speed;
-      e.y += Math.sin(angle) * e.speed;
+      const step = e.speed * factor;
+      e.x += Math.cos(angle) * step;
+      e.y += Math.sin(angle) * step;
 
       if (Math.hypot(dx, dy) < e.radius + target.size * 0.35) {
-        target.integrity = Math.max(0, target.integrity - 0.6);
+        target.integrity = Math.max(0, target.integrity - 0.6 * factor);
         e.life -= 40;
       }
     } else {
@@ -185,14 +205,16 @@ function updateEnzymes() {
 }
 
 function updateBacteria() {
+  const factor = tempFactor();
   for (const b of bacteriaSwarm) {
     const { target, dist } = nearestPlastic(b);
     if (target) {
       const dx = target.x - b.x;
       const dy = target.y - b.y;
       const angle = Math.atan2(dy, dx);
-      b.x += Math.cos(angle) * b.speed;
-      b.y += Math.sin(angle) * b.speed;
+      const step = b.speed * factor;
+      b.x += Math.cos(angle) * step;
+      b.y += Math.sin(angle) * step;
     }
 
     b.wiggle += 0.1;
@@ -256,11 +278,12 @@ function drawRoundedRect(x, y, width, height, radius) {
 }
 
 function drawEnzymes() {
+  const dormant = tempFactor() === 0;
   for (const e of enzymes) {
     ctx.save();
     ctx.translate(e.x, e.y);
-    ctx.fillStyle = "rgba(168, 85, 247, 0.8)";
-    ctx.strokeStyle = "rgba(126, 34, 206, 0.9)";
+    ctx.fillStyle = dormant ? "rgba(148, 163, 184, 0.7)" : "rgba(168, 85, 247, 0.8)";
+    ctx.strokeStyle = dormant ? "rgba(100, 116, 139, 0.9)" : "rgba(126, 34, 206, 0.9)";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(0, 0, e.radius, 0, Math.PI * 2);
@@ -271,18 +294,19 @@ function drawEnzymes() {
 }
 
 function drawBacteria() {
+  const dormant = tempFactor() === 0;
   for (const b of bacteriaSwarm) {
     ctx.save();
     ctx.translate(b.x, b.y);
-    ctx.fillStyle = "#22c55e";
-    ctx.strokeStyle = "#16a34a";
+    ctx.fillStyle = dormant ? "#94a3b8" : "#22c55e";
+    ctx.strokeStyle = dormant ? "#64748b" : "#16a34a";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.ellipse(0, 0, b.radius * 1.2, b.radius * 0.9, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    ctx.strokeStyle = "rgba(22, 163, 74, 0.8)";
+    ctx.strokeStyle = dormant ? "rgba(100, 116, 139, 0.7)" : "rgba(22, 163, 74, 0.8)";
     ctx.lineWidth = 1;
     for (let i = 0; i < 4; i++) {
       const angle = (i / 4) * Math.PI * 2 + b.wiggle * 0.2;
@@ -360,6 +384,7 @@ function loop(timestamp) {
 function updateCounts() {
   bacteriaVal.textContent = bacteriaSlider.value;
   plasticVal.textContent = plasticSlider.value;
+  tempVal.textContent = tempSlider.value;
 }
 
 bacteriaSlider.addEventListener("input", () => {
@@ -377,6 +402,10 @@ plasticSlider.addEventListener("input", () => {
   timerStarted = false;
   elapsedStart = 0;
   elapsedTimeEl.textContent = "0.0 s";
+});
+
+tempSlider.addEventListener("input", () => {
+  updateCounts();
 });
 
 updateCounts();
