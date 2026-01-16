@@ -63,6 +63,7 @@ canvas {
     <input type="range" id="tempSlider" min="0" max="50" value="25">
     <span id="tempVal">25</span>
   </label>
+  <button id="restartBtn" type="button">Restart simulation</button>
   <div>Elapsed: <span id="elapsedTime">0.0 s</span></div>
 </div>
 
@@ -82,6 +83,7 @@ const plasticVal = document.getElementById("plasticVal");
 const tempSlider = document.getElementById("tempSlider");
 const tempVal = document.getElementById("tempVal");
 const elapsedTimeEl = document.getElementById("elapsedTime");
+const restartBtn = document.getElementById("restartBtn");
 
 const groundY = 300;
 const plastics = [];
@@ -388,6 +390,19 @@ function updateCounts() {
   tempVal.textContent = tempSlider.value;
 }
 
+function resetSimulation() {
+  createPlastics();
+  createBacteria();
+  enzymes.length = 0;
+  enzymeCooldown = 0;
+  secondAccumulator = 0;
+  lastTimestamp = 0;
+  simulationActive = true;
+  timerStarted = false;
+  elapsedStart = 0;
+  elapsedTimeEl.textContent = "0.0 s";
+}
+
 bacteriaSlider.addEventListener("input", () => {
   updateCounts();
   createBacteria();
@@ -395,14 +410,7 @@ bacteriaSlider.addEventListener("input", () => {
 
 plasticSlider.addEventListener("input", () => {
   updateCounts();
-  createPlastics();
-  enzymes.length = 0;
-  secondAccumulator = 0;
-  lastTimestamp = 0;
-  simulationActive = true;
-  timerStarted = false;
-  elapsedStart = 0;
-  elapsedTimeEl.textContent = "0.0 s";
+  resetSimulation();
 });
 
 tempSlider.addEventListener("input", () => {
@@ -410,11 +418,12 @@ tempSlider.addEventListener("input", () => {
 });
 
 updateCounts();
-createPlastics();
-createBacteria();
-enzymes.length = 0;
-elapsedTimeEl.textContent = "0.0 s";
+resetSimulation();
 loop();
+
+restartBtn.addEventListener("click", () => {
+  resetSimulation();
+});
 </script>
 </body>
 </html>
