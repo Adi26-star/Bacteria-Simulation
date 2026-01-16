@@ -134,7 +134,7 @@ function createBacteria() {
 
 function tempFactor() {
   const tempC = Number(tempSlider.value);
-  if (tempC < 5) {
+  if (tempC < 5 || tempC >= 45) {
     return 0;
   }
   return 0.5 + (tempC / 50);
