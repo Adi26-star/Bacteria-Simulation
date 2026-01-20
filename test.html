@@ -63,8 +63,13 @@ canvas {
     <input type="range" id="tempSlider" min="0" max="75" value="25">
     <span id="tempVal">25</span>
   </label>
+  <label>
+    Moisture
+    <input type="range" id="moistureSlider" min="0" max="1" step="0.1" value="0.5">
+    <span id="moistureVal">0.5</span>
+  </label>
   <button id="restartBtn" type="button" aria-label="Restart simulation" title="Restart simulation">&#x21bb;</button>
-  <div>Elapsed: <span id="elapsedTime">0.0 s</span></div>
+  <div>Elapsed: <span id="elapsedTime">0 d 0 h</span></div>
 </div>
 
 <canvas id="scene" width="850" height="420"></canvas>
@@ -82,6 +87,8 @@ const bacteriaVal = document.getElementById("bacteriaVal");
 const plasticVal = document.getElementById("plasticVal");
 const tempSlider = document.getElementById("tempSlider");
 const tempVal = document.getElementById("tempVal");
+const moistureSlider = document.getElementById("moistureSlider");
+const moistureVal = document.getElementById("moistureVal");
 const elapsedTimeEl = document.getElementById("elapsedTime");
 const restartBtn = document.getElementById("restartBtn");
 
@@ -140,6 +147,10 @@ function tempFactor() {
   return 0.5 + (tempC / 75);
 }
 
+function moistureFactor() {
+  return Number(moistureSlider.value);
+}
+
 function nearestPlastic(b) {
   let closest = null;
   let closestDist = Infinity;
@@ -181,18 +192,19 @@ function spawnEnzymes() {
 
 function updateEnzymes() {
   const factor = tempFactor();
+  const moisture = moistureFactor();
   for (const e of enzymes) {
     const { target } = nearestPlastic(e);
     if (target) {
       const dx = target.x - e.x;
       const dy = target.y - e.y;
       const angle = Math.atan2(dy, dx);
-      const step = e.speed * factor;
+      const step = e.speed * factor * moisture;
       e.x += Math.cos(angle) * step;
       e.y += Math.sin(angle) * step;
 
       if (Math.hypot(dx, dy) < e.radius + target.size * 0.35) {
-        target.integrity = Math.max(0, target.integrity - 0.6 * factor);
+        target.integrity = Math.max(0, target.integrity - 0.6 * factor * moisture);
         e.life -= 40;
       }
     } else {
@@ -209,13 +221,14 @@ function updateEnzymes() {
 
 function updateBacteria() {
   const factor = tempFactor();
+  const moisture = moistureFactor();
   for (const b of bacteriaSwarm) {
     const { target, dist } = nearestPlastic(b);
     if (target) {
       const dx = target.x - b.x;
       const dy = target.y - b.y;
       const angle = Math.atan2(dy, dx);
-      const step = b.speed * factor;
+      const step = b.speed * factor * moisture;
       b.x += Math.cos(angle) * step;
       b.y += Math.sin(angle) * step;
     }
@@ -361,8 +374,10 @@ function updateTimer(timestamp, remainingPercent) {
   while (secondAccumulator >= secondDurationMs) {
     secondAccumulator -= secondDurationMs;
   }
-  const elapsedSeconds = (timestamp - elapsedStart) / 1000;
-  elapsedTimeEl.textContent = `${elapsedSeconds.toFixed(1)} s`;
+  const elapsedDays = (timestamp - elapsedStart) / 1000;
+  const wholeDays = Math.floor(elapsedDays);
+  const hours = Math.floor((elapsedDays - wholeDays) * 24);
+  elapsedTimeEl.textContent = `${wholeDays} d ${hours} h`;
 }
 
 function loop(timestamp) {
@@ -388,6 +403,7 @@ function updateCounts() {
   bacteriaVal.textContent = bacteriaSlider.value;
   plasticVal.textContent = plasticSlider.value;
   tempVal.textContent = tempSlider.value;
+  moistureVal.textContent = moistureSlider.value;
 }
 
 function resetSimulation() {
@@ -400,7 +416,7 @@ function resetSimulation() {
   simulationActive = true;
   timerStarted = false;
   elapsedStart = 0;
-  elapsedTimeEl.textContent = "0.0 s";
+  elapsedTimeEl.textContent = "0 d 0 h";
 }
 
 bacteriaSlider.addEventListener("input", () => {
