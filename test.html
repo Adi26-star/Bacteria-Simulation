@@ -60,7 +60,7 @@ canvas {
   </label>
   <label>
     Temperature (C)
-    <input type="range" id="tempSlider" min="0" max="50" value="25">
+    <input type="range" id="tempSlider" min="0" max="75" value="25">
     <span id="tempVal">25</span>
   </label>
   <button id="restartBtn" type="button" aria-label="Restart simulation" title="Restart simulation">&#x21bb;</button>
@@ -134,10 +134,10 @@ function createBacteria() {
 
 function tempFactor() {
   const tempC = Number(tempSlider.value);
-  if (tempC < 5 || tempC >= 45) {
+  if (tempC < 5 || tempC > 70) {
     return 0;
   }
-  return 0.5 + (tempC / 50);
+  return 0.5 + (tempC / 75);
 }
 
 function nearestPlastic(b) {
