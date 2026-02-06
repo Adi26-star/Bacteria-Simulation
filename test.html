@@ -691,6 +691,7 @@ let simulationActive = true;
 let timerStarted = false;
 let elapsedStart = 0;
 const secondDurationMs = 1000;
+const simulationSpeed = 1.5;
 
 function rand(min, max) {
   return min + Math.random() * (max - min);
@@ -787,12 +788,12 @@ function updateEnzymes() {
       const dx = target.x - e.x;
       const dy = target.y - e.y;
       const angle = Math.atan2(dy, dx);
-      const step = e.speed * factor * moisture;
+      const step = e.speed * factor * moisture * simulationSpeed;
       e.x += Math.cos(angle) * step;
       e.y += Math.sin(angle) * step;
 
       if (Math.hypot(dx, dy) < e.radius + target.size * 0.35) {
-        target.integrity = Math.max(0, target.integrity - 0.6 * factor * moisture);
+        target.integrity = Math.max(0, target.integrity - 0.6 * factor * moisture * simulationSpeed);
         e.life -= 40;
       }
     } else {
@@ -816,7 +817,7 @@ function updateBacteria() {
       const dx = target.x - b.x;
       const dy = target.y - b.y;
       const angle = Math.atan2(dy, dx);
-      const step = b.speed * factor * moisture;
+      const step = b.speed * factor * moisture * simulationSpeed;
       b.x += Math.cos(angle) * step;
       b.y += Math.sin(angle) * step;
     }
