@@ -1135,6 +1135,10 @@ function updateTimer(timestamp, remainingPercent) {
 }
 
 function loop(timestamp) {
+  if (timestamp == null) {
+    requestAnimationFrame(loop);
+    return;
+  }
   if (!timerStarted) {
     drawScene();
     const remainingPercent = updateStats();
@@ -1193,7 +1197,7 @@ moistureSlider.addEventListener("input", () => {
 
 updateCounts();
 resetSimulation();
-loop();
+requestAnimationFrame(loop);
 
 restartBtn.addEventListener("click", () => {
   resetSimulation();
