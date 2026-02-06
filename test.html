@@ -1126,7 +1126,8 @@ function updateTimer(timestamp, remainingPercent) {
   while (secondAccumulator >= secondDurationMs) {
     secondAccumulator -= secondDurationMs;
   }
-  const elapsedDays = (timestamp - elapsedStart) / 1000;
+  const timeScale = 1 / 3;
+  const elapsedDays = ((timestamp - elapsedStart) / 1000) * timeScale;
   const wholeDays = Math.floor(elapsedDays);
   const hours = Math.floor((elapsedDays - wholeDays) * 24);
   elapsedTimeEl.textContent = `${wholeDays} d ${hours} h`;
